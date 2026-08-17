@@ -1,1 +1,322 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ENERGIES STORE - APK Mağazası</title>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, collection, addDoc, getDocs, doc, getDoc, setDoc, query, where } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
+        const firebaseConfig = {
+          apiKey: "AIzaSyDuO4IbGdFTn7Z_whKjKoZx_XZihQ4YTkk",
+          authDomain: "mielaapp-7427e.firebaseapp.com",
+          projectId: "mielaapp-7427e",
+          storageBucket: "mielaapp-7427e.firebasestorage.app",
+          messagingSenderId: "700418891510",
+          appId: "1:700418891510:web:abb0b07b100ffdc72916d7",
+          measurementId: "G-1ZWMKWE1V8"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        let currentUser = JSON.parse(localStorage.getItem('energies_user')) || null;
+        let secilenResimData = "";
+
+        window.sekmeDegis = function(sekmeId) {
+            document.querySelectorAll('.kategori').forEach(el => el.style.display = 'none');
+            document.getElementById(sekmeId).style.display = 'block';
+            if(sekmeId === 'magazaBolum') listele();
+            if(sekmeId === 'mesajBolum') mesajlariGetir();
+        };
+
+        window.resimSec = function(event) {
+            const file = event.target.files[0];
+            if(file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    secilenResimData = e.target.result;
+                    document.getElementById('resimAdi').innerText = "Seçilen Resim: " + file.name;
+                };
+                reader.readAsDataURL(file);
+            }
+        };
+
+        window.kayitOl = async function() {
+            const mail = document.getElementById('regMail').value;
+            const pass = document.getElementById('regPass').value;
+            const profil = document.getElementById('regProfil').value;
+            if(!mail || !pass || !profil) { alert("Tüm alanları doldur kanka!"); return; }
+
+            try {
+                const userId = 'user_' + Math.random().toString(36).substring(2, 9);
+                const userData = { id: userId, mail, pass, profil, isPremium: false };
+                await setDoc(doc(db, "users", userId), userData);
+                currentUser = userData;
+                localStorage.setItem('energies_user', JSON.stringify(currentUser));
+                alert("Kayıt başarılı ve giriş yapıldı!");
+                location.reload();
+            } catch(e) { alert("Hata: " + e.message); }
+        };
+
+        window.cikisYap = function() {
+            localStorage.removeItem('energies_user');
+            location.reload();
+        };
+
+        function checkAuth() {
+            const authArea = document.getElementById('authArea');
+            if(currentUser) {
+                authArea.innerHTML = `
+                    <div style="background:#f8fafc; padding:15px; border-radius:8px; border:1px solid #cbd5e1;">
+                        <p style="margin:0 0 10px 0; color:#16a34a; font-weight:bold;">Giriş Yapıldı: ${currentUser.profil} (${currentUser.mail})</p>
+                        <p style="margin:0 0 10px 0; font-size:13px; color:#64748b;">User ID'niz (Firebase'den Premium vermek için): <b style="color:#0284c7;">${currentUser.id}</b></p>
+                        <button onclick="cikisYap()" style="background:#dc2626; color:#fff; width:auto; padding:8px 16px;">Çıkış Yap</button>
+                    </div>
+                `;
+            } else {
+                authArea.innerHTML = `
+                    <div style="background:#f8fafc; padding:15px; border-radius:8px; border:1px solid #cbd5e1;">
+                        <h3 style="margin-top:0; color:#0284c7;">Kayıt Ol / Giriş Yap</h3>
+                        <input type="text" id="regProfil" placeholder="Profil / Geliştirici Adı">
+                        <input type="email" id="regMail" placeholder="Mail Adresi">
+                        <input type="password" id="regPass" placeholder="Şifre">
+                        <button onclick="kayitOl()">Kayıt Ol & Giriş Yap</button>
+                    </div>
+                `;
+            }
+        }
+
+        window.apkYukle = async function() {
+            if(!currentUser) { alert("Önce giriş yapmalısın kanka!"); return; }
+            const ad = document.getElementById('appName').value;
+            const surum = document.getElementById('appSurum').value;
+            const amac = document.getElementById('appAmac').value;
+            const fiyat = Number(document.getElementById('appFiyat').value);
+            const premium = document.getElementById('appPremium').value;
+            const url = document.getElementById('appUrl').value;
+
+            if(!ad || !url) { alert("Uygulama adı ve indirme linki zorunlu!"); return; }
+
+            try {
+                const docRef = await addDoc(collection(db, "apk_magaza"), {
+                    ad, surum, amac, fiyat, premium, url,
+                    resim: secilenResimData || "",
+                    profil: currentUser.profil,
+                    saticiId: currentUser.id,
+                    tarih: new Date().toISOString()
+                });
+                const link = window.location.origin + window.location.pathname + "?id=" + docRef.id;
+                document.getElementById('sonucLink').innerHTML = `<p style="color:#0284c7; margin-top:8px; font-weight:bold;">Yüklendi! Paylaşım Linki:</p><input type="text" value="${link}" readonly style="background:#f1f5f9;">`;
+                alert("Uygulama başarıyla yüklendi kanka!");
+            } catch(e) { alert("Hata: " + e.message); }
+        };
+
+        async function listele() {
+            const listeDiv = document.getElementById('liste');
+            listeDiv.innerHTML = "Yükleniyor...";
+            try {
+                const snap = await getDocs(collection(db, "apk_magaza"));
+                let html = "";
+                snap.forEach(d => {
+                    const item = d.data();
+                    const id = d.id;
+                    const link = window.location.origin + window.location.pathname + "?id=" + id;
+                    let resimHtml = item.resim ? `<img src="${item.resim}" style="width:100%; height:120px; object-fit:cover; border-radius:6px; margin-bottom:8px;">` : `<div style="width:100%; height:120px; background:#e2e8f0; border-radius:6px; display:flex; align-items:center; justify-content:center; color:#64748b; margin-bottom:8px; font-size:12px;">Resim Yok</div>`;
+                    
+                    html += `
+                        <div style="background:#f8fafc; padding:15px; border-radius:8px; border:1px solid #cbd5e1; display:flex; flex-direction:column; justify-content:space-between;">
+                            <div>
+                                ${resimHtml}
+                                <h3 style="margin:0 0 6px 0; color:#0284c7; font-size:18px;">${item.ad}</h3>
+                                <p style="margin:3px 0; font-size:13px; color:#475569;">By: <b>${item.profil}</b></p>
+                                <p style="margin:3px 0; font-size:13px; color:#475569;">Sürüm: ${item.surum || '1.0'} | Amaç: ${item.amac || '-'}</p>
+                                <p style="margin:3px 0; font-size:13px; color:#475569;">Fiyat: <b style="color:#16a34a;">${item.fiyat} TL</b> | Premium Ücretsiz: ${item.premium}</p>
+                            </div>
+                            <a href="${link}" style="background:#0284c7; color:#fff; text-align:center; padding:8px; border-radius:6px; text-decoration:none; font-weight:bold; font-size:13px; margin-top:10px; display:block;">Detay & İndir</a>
+                        </div>
+                    `;
+                });
+                listeDiv.innerHTML = html || "<p style='color:#64748b;'>Henüz uygulama eklenmemiş.</p>";
+            } catch(e) {
+                listeDiv.innerHTML = "<p style='color:red;'>Liste yüklenirken hata oluştu.</p>";
+            }
+        }
+
+        async function mesajlariGetir() {
+            if(!currentUser) {
+                document.getElementById('dmListesi').innerHTML = "<p style='color:red;'>Mesajları görmek için giriş yapmalısın!</p>";
+                return;
+            }
+            const dmDiv = document.getElementById('dmListesi');
+            try {
+                const q = query(collection(db, "dm_kutusu"), where("saticiId", "==", currentUser.id));
+                const snap = await getDocs(q);
+                let html = "";
+                snap.forEach(d => {
+                    const m = d.data();
+                    html += `
+                        <div style="background:#f1f5f9; padding:10px; border-radius:6px; margin-bottom:8px; border:1px solid #cbd5e1; font-size:13px;">
+                            <b>Alıcı:</b> ${m.aliciProfil} (${m.aliciMail})<br>
+                            <b>Mesaj / Kod:</b> ${m.mesaj}
+                        </div>
+                    `;
+                });
+                dmDiv.innerHTML = html || "<p style='color:#64748b; font-size:13px;'>Gelen mesaj/play kod yok.</p>";
+            } catch(e) {
+                dmDiv.innerHTML = "<p style='color:red; font-size:13px;'>Mesajlar yüklenemedi.</p>";
+            }
+        }
+
+        async function detayKontrol() {
+            const params = new URLSearchParams(window.location.search);
+            const id = params.get('id');
+            if(id) {
+                document.getElementById('tumSayfa').style.display = 'none';
+                document.getElementById('detayPanel').style.display = 'block';
+
+                const docSnap = await getDoc(doc(db, "apk_magaza", id));
+                if(docSnap.exists()) {
+                    const item = docSnap.data();
+                    let indirmeAlani = "";
+
+                    let kullaniciPremiumMu = currentUser && currentUser.isPremium;
+                    if(kullaniciPremiumMu && item.premium === "Evet") {
+                        indirmeAlani = `<a href="${item.url}" style="background:#16a34a; color:#fff; padding:12px 25px; display:inline-block; font-weight:bold; border-radius:6px; text-decoration:none;">💎 Premium Avantajıyla Hemen İndir</a>`;
+                    } else if(item.fiyat <= 0) {
+                        indirmeAlani = `<a href="${item.url}" style="background:#16a34a; color:#fff; padding:12px 25px; display:inline-block; font-weight:bold; border-radius:6px; text-decoration:none;">📲 Hemen İndir</a>`;
+                    } else {
+                        indirmeAlani = `
+                            <p style="color:#d97706; font-weight:bold;">Bu uygulama ücretlidir (${item.fiyat} TL). 25 TL Play Kod ile satın alabilirsin.</p>
+                            <input type="text" id="playKodInput" placeholder="Play Kodunu Yazınız..." style="max-width:400px;">
+                            <button onclick="playKodGonder('${item.saticiId}', '${item.ad}')" style="max-width:400px; background:#0284c7; color:#fff;">Satıcıya Play Kod Gönder (DM)</button>
+                            <p id="dmDurum" style="color:#16a34a; font-size:13px; margin-top:8px;"></p>
+                        `;
+                    }
+
+                    let detayResim = item.resim ? `<img src="${item.resim}" style="width:200px; height:150px; object-fit:cover; border-radius:8px; margin-bottom:15px;">` : "";
+
+                    document.getElementById('detayIcerik').innerHTML = `
+                        ${detayResim}
+                        <h2 style="color:#0284c7; margin-top:0;">${item.ad}</h2>
+                        <p style="font-size:14px; color:#334155;"><b>Yapımcı / By:</b> ${item.profil}</p>
+                        <p style="font-size:14px; color:#334155;"><b>Sürüm:</b> ${item.surum}</p>
+                        <p style="font-size:14px; color:#334155;"><b>Amaç:</b> ${item.amac}</p>
+                        <p style="font-size:14px; color:#334155;"><b>Fiyat:</b> <b style="color:#16a34a;">${item.fiyat} TL</b></p>
+                        <br>${indirmeAlani}
+                    `;
+                } else {
+                    document.getElementById('detayIcerik').innerHTML = "<h3 style='color:red;'>Uygulama bulunamadı!</h3>";
+                }
+            } else {
+                checkAuth();
+                listele();
+            }
+        }
+
+        window.playKodGonder = async function(saticiId, appAd) {
+            if(!currentUser) { alert("Giriş yapmalısın!"); return; }
+            const kod = document.getElementById('playKodInput').value;
+            if(!kod) { alert("Lütfen kodu gir!"); return; }
+
+            await addDoc(collection(db, "dm_kutusu"), {
+                saticiId,
+                aliciMail: currentUser.mail,
+                aliciProfil: currentUser.profil,
+                mesaj: `Uygulama Alımı: ${appAd} - Play Kod: ${kod}`,
+                tarih: new Date().toISOString()
+            });
+            document.getElementById('dmDurum').innerText = "Play kod satıcıya iletildi!";
+        }
+
+        window.onload = detayKontrol;
+    </script>
+    <style>
+        body { font-family: Arial, sans-serif; background: #f1f5f9; color: #1e293b; margin: 0; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        header { text-align: center; margin-bottom: 20px; }
+        header h1 { color: #0284c7; margin: 0; font-size: 28px; }
+        
+        /* EN ÜST KATEGORİ MENÜSÜ */
+        .ust-menu { display: flex; gap: 10px; justify-content: center; margin-bottom: 25px; flex-wrap: wrap; background: #ffffff; padding: 12px; border-radius: 8px; border: 1px solid #cbd5e1; }
+        .ust-menu button { background: #0284c7; color: #fff; border: none; padding: 10px 18px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 14px; width: auto; margin: 0; }
+        .ust-menu button:hover { background: #0369a1; }
+
+        input, select, textarea { width: 100%; padding: 10px; margin: 6px 0; background: #fff; border: 1px solid #cbd5e1; color: #000; border-radius: 6px; box-sizing: border-box; }
+        button { width: 100%; padding: 10px; background: #16a34a; color: #fff; font-weight: bold; border: none; border-radius: 6px; cursor: pointer; margin-top: 8px; }
+        button:hover { opacity: 0.9; }
+        
+        .kategori { background: #ffffff; padding: 20px; border-radius: 10px; border: 1px solid #cbd5e1; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 15px; }
+    </style>
+</head>
+<body>
+    <div class="container" id="tumSayfa">
+        <header>
+            <h1>ENERGIES STORE</h1>
+            <p style="color: #64748b; font-size: 14px;">Kategori Menülü Beyaz Tema APK Mağazası</p>
+        </header>
+
+        <!-- EN ÜST KATEGORİ MENÜ BUTONLARI -->
+        <div class="ust-menu">
+            <button onclick="sekmeDegis('magazaBolum')">📦 Mağaza</button>
+            <button onclick="sekmeDegis('ekleBolum')">➕ Uygulama Ekle</button>
+            <button onclick="sekmeDegis('mesajBolum')">💬 Mesajlar / DM</button>
+            <button onclick="sekmeDegis('profilBolum')">👤 Giriş / Profil</button>
+        </div>
+
+        <!-- 1. KATEGORİ: MAĞAZA (Varsayılan Açık) -->
+        <div id="magazaBolum" class="kategori">
+            <h3 style="margin-top:0; color:#0284c7; border-bottom:2px solid #e2e8f0; padding-bottom:8px;">Mağaza / Uygulamalar Listesi</h3>
+            <div id="liste" class="grid">Yükleniyor...</div>
+        </div>
+
+        <!-- 2. KATEGORİ: UYGULAMA EKLE -->
+        <div id="ekleBolum" class="kategori" style="display:none;">
+            <h3 style="margin-top:0; color:#0284c7; border-bottom:2px solid #e2e8f0; padding-bottom:8px;">Yeni Uygulama Yükle</h3>
+            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:10px;">
+                <input type="text" id="appName" placeholder="Uygulama Adı">
+                <input type="text" id="appSurum" placeholder="Sürüm (örn: v1.0)">
+                <input type="text" id="appAmac" placeholder="Amaç / Ne işe yarar?">
+                <input type="number" id="appFiyat" min="0" max="100" placeholder="Fiyat (0 - 100 TL)">
+            </div>
+            <div style="margin-top:10px;">
+                <label style="font-size:13px; color:#475569;">Uygulama Görseli (Galeriden Seç):</label>
+                <input type="file" accept="image/*" onchange="resimSec(event)">
+                <p id="resimAdi" style="font-size:12px; color:#16a34a; margin:2px 0;"></p>
+            </div>
+            <div style="margin-top:10px;">
+                <label style="font-size:13px; color:#475569;">Premium Ücretsiz İndirebilsin mi?</label>
+                <select id="appPremium">
+                    <option value="Evet">Evet</option>
+                    <option value="Hayır">Hayır</option>
+                </select>
+            </div>
+            <input type="text" id="appUrl" placeholder="APK İndirme Linki" style="margin-top:10px;">
+            <button onclick="apkYukle()">Uygulamayı Yayınla</button>
+            <div id="sonucLink"></div>
+        </div>
+
+        <!-- 3. KATEGORİ: MESAJLAR / DM -->
+        <div id="mesajBolum" class="kategori" style="display:none;">
+            <h3 style="margin-top:0; color:#0284c7; border-bottom:2px solid #e2e8f0; padding-bottom:8px;">Gelen Play Kodlar (DM Kutusu)</h3>
+            <div id="dmListesi">Yükleniyor...</div>
+        </div>
+
+        <!-- 4. KATEGORİ: GİRİŞ / PROFİL -->
+        <div id="profilBolum" class="kategori" style="display:none;">
+            <h3 style="margin-top:0; color:#0284c7; border-bottom:2px solid #e2e8f0; padding-bottom:8px;">Kullanıcı Profili</h3>
+            <div id="authArea"></div>
+        </div>
+    </div>
+
+    <!-- DETAY SAYFASI -->
+    <div id="detayPanel" class="container" style="display:none;">
+        <div class="kategori">
+            <div id="detayIcerik"></div>
+            <br><a href="?" style="color:#0284c7; font-weight:bold; text-decoration:none;">← Mağazaya Geri Dön</a>
+        </div>
+    </div>
+</body>
+              </html>
