@@ -47,7 +47,7 @@
             const mail = document.getElementById('regMail').value;
             const pass = document.getElementById('regPass').value;
             const profil = document.getElementById('regProfil').value;
-            if(!mail || !pass || !profil) { alert("Tüm alanları doldur kanka!"); return; }
+            if(!mail || !pass || !profil) { alert("Tüm alanları doldur "); return; }
 
             try {
                 const userId = 'user_' + Math.random().toString(36).substring(2, 9);
@@ -89,7 +89,7 @@
         }
 
         window.apkYukle = async function() {
-            if(!currentUser) { alert("Önce giriş yapmalısın kanka!"); return; }
+            if(!currentUser) { alert("Önce giriş yapmalısın "); return; }
             const ad = document.getElementById('appName').value;
             const surum = document.getElementById('appSurum').value;
             const amac = document.getElementById('appAmac').value;
@@ -109,7 +109,7 @@
                 });
                 const link = window.location.origin + window.location.pathname + "?id=" + docRef.id;
                 document.getElementById('sonucLink').innerHTML = `<p style="color:#0284c7; margin-top:8px; font-weight:bold;">Yüklendi! Paylaşım Linki:</p><input type="text" value="${link}" readonly style="background:#f1f5f9;">`;
-                alert("Uygulama başarıyla yüklendi kanka!");
+                alert("Uygulama başarıyla yüklendi ");
             } catch(e) { alert("Hata: " + e.message); }
         };
 
@@ -255,7 +255,7 @@
     <div class="container" id="tumSayfa">
         <header>
             <h1>ENERGIES STORE</h1>
-            <p style="color: #64748b; font-size: 14px;">Kategori Menülü Beyaz Tema APK Mağazası</p>
+            <p style="color: #64748b; font-size: 14px;">NodeGuard APK Mağazası</p>
         </header>
 
         <!-- EN ÜST KATEGORİ MENÜ BUTONLARI -->
