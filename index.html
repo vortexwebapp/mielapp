@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ENERGIES STORE - APK Mağazası</title>
+    <title>MIELA APP - APK Mağazası</title>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, collection, addDoc, getDocs, doc, getDoc, setDoc, query, where } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, getDocs, doc, getDoc, setDoc, query, where, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         const firebaseConfig = {
           apiKey: "AIzaSyDuO4IbGdFTn7Z_whKjKoZx_XZihQ4YTkk",
@@ -155,11 +155,19 @@
                 const snap = await getDocs(q);
                 let html = "";
                 snap.forEach(d => {
+                    const mId = d.id;
                     const m = d.data();
+                    let teslimDurumu = m.teslimatLinki ? `<p style="color:#16a34a; font-weight:bold; margin:5px 0;">Gönderilen Link: <a href="${m.teslimatLinki}" target="_blank">${m.teslimatLinki}</a></p>` : '';
+                    
                     html += `
-                        <div style="background:#f1f5f9; padding:10px; border-radius:6px; margin-bottom:8px; border:1px solid #cbd5e1; font-size:13px;">
+                        <div style="background:#f1f5f9; padding:10px; border-radius:6px; margin-bottom:10px; border:1px solid #cbd5e1; font-size:13px;">
                             <b>Alıcı:</b> ${m.aliciProfil} (${m.aliciMail})<br>
                             <b>Mesaj / Kod:</b> ${m.mesaj}
+                            ${teslimDurumu}
+                            <div style="margin-top: 8px; display: flex; gap: 5px;">
+                                <input type="text" id="link_${mId}" placeholder="İndirme linkini buraya yapıştır..." style="margin:0; padding:6px;">
+                                <button onclick="dmLinkGonder('${mId}')" style="margin:0; width:auto; padding:6px 12px; background:#16a34a;">Link Gönder</button>
+                            </div>
                         </div>
                     `;
                 });
@@ -168,6 +176,20 @@
                 dmDiv.innerHTML = "<p style='color:red; font-size:13px;'>Mesajlar yüklenemedi.</p>";
             }
         }
+
+        window.dmLinkGonder = async function(mesajId) {
+            const linkInput = document.getElementById('link_' + mesajId).value;
+            if(!linkInput) { alert("Lütfen indirme linkini yaz!"); return; }
+            try {
+                await updateDoc(doc(db, "dm_kutusu", mesajId), {
+                    teslimatLinki: linkInput
+                });
+                alert("İndirme linki müşteriye başarıyla gönderildi!");
+                mesajlariGetir();
+            } catch(e) {
+                alert("Hata: " + e.message);
+            }
+        };
 
         async function detayKontrol() {
             const params = new URLSearchParams(window.location.search);
@@ -188,7 +210,7 @@
                         indirmeAlani = `<a href="${item.url}" style="background:#16a34a; color:#fff; padding:12px 25px; display:inline-block; font-weight:bold; border-radius:6px; text-decoration:none;">📲 Hemen İndir</a>`;
                     } else {
                         indirmeAlani = `
-                            <p style="color:#d97706; font-weight:bold;">Bu uygulama ücretlidir (${item.fiyat} TL). 25 TL Play Kod ile satın alabilirsin.</p>
+                            <p style="color:#d97706; font-weight:bold;">Bu uygulama ücretlidir (${item.fiyat} TL). Play Kod ile satın alabilirsin.</p>
                             <input type="text" id="playKodInput" placeholder="Play Kodunu Yazınız..." style="max-width:400px;">
                             <button onclick="playKodGonder('${item.saticiId}', '${item.ad}')" style="max-width:400px; background:#0284c7; color:#fff;">Satıcıya Play Kod Gönder (DM)</button>
                             <p id="dmDurum" style="color:#16a34a; font-size:13px; margin-top:8px;"></p>
@@ -238,7 +260,6 @@
         header { text-align: center; margin-bottom: 20px; }
         header h1 { color: #0284c7; margin: 0; font-size: 28px; }
         
-        /* EN ÜST KATEGORİ MENÜSÜ */
         .ust-menu { display: flex; gap: 10px; justify-content: center; margin-bottom: 25px; flex-wrap: wrap; background: #ffffff; padding: 12px; border-radius: 8px; border: 1px solid #cbd5e1; }
         .ust-menu button { background: #0284c7; color: #fff; border: none; padding: 10px 18px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 14px; width: auto; margin: 0; }
         .ust-menu button:hover { background: #0369a1; }
@@ -254,11 +275,10 @@
 <body>
     <div class="container" id="tumSayfa">
         <header>
-            <h1>ENERGIES STORE</h1>
+            <h1>MIELA APP</h1>
             <p style="color: #64748b; font-size: 14px;">NodeGuard APK Mağazası</p>
         </header>
 
-        <!-- EN ÜST KATEGORİ MENÜ BUTONLARI -->
         <div class="ust-menu">
             <button onclick="sekmeDegis('magazaBolum')">📦 Mağaza</button>
             <button onclick="sekmeDegis('ekleBolum')">➕ Uygulama Ekle</button>
@@ -266,13 +286,11 @@
             <button onclick="sekmeDegis('profilBolum')">👤 Giriş / Profil</button>
         </div>
 
-        <!-- 1. KATEGORİ: MAĞAZA (Varsayılan Açık) -->
         <div id="magazaBolum" class="kategori">
             <h3 style="margin-top:0; color:#0284c7; border-bottom:2px solid #e2e8f0; padding-bottom:8px;">Mağaza / Uygulamalar Listesi</h3>
             <div id="liste" class="grid">Yükleniyor...</div>
         </div>
 
-        <!-- 2. KATEGORİ: UYGULAMA EKLE -->
         <div id="ekleBolum" class="kategori" style="display:none;">
             <h3 style="margin-top:0; color:#0284c7; border-bottom:2px solid #e2e8f0; padding-bottom:8px;">Yeni Uygulama Yükle</h3>
             <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:10px;">
@@ -298,20 +316,17 @@
             <div id="sonucLink"></div>
         </div>
 
-        <!-- 3. KATEGORİ: MESAJLAR / DM -->
         <div id="mesajBolum" class="kategori" style="display:none;">
             <h3 style="margin-top:0; color:#0284c7; border-bottom:2px solid #e2e8f0; padding-bottom:8px;">Gelen Play Kodlar (DM Kutusu)</h3>
             <div id="dmListesi">Yükleniyor...</div>
         </div>
 
-        <!-- 4. KATEGORİ: GİRİŞ / PROFİL -->
         <div id="profilBolum" class="kategori" style="display:none;">
             <h3 style="margin-top:0; color:#0284c7; border-bottom:2px solid #e2e8f0; padding-bottom:8px;">Kullanıcı Profili</h3>
             <div id="authArea"></div>
         </div>
     </div>
 
-    <!-- DETAY SAYFASI -->
     <div id="detayPanel" class="container" style="display:none;">
         <div class="kategori">
             <div id="detayIcerik"></div>
@@ -319,4 +334,4 @@
         </div>
     </div>
 </body>
-              </html>
+</html>
