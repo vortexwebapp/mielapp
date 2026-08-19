@@ -24,6 +24,23 @@
         let currentUser = JSON.parse(localStorage.getItem('energies_user')) || null;
         let secilenResimData = "";
 
+        async function kullaniciyiGuncelleVeBaslat() {
+            if (currentUser && currentUser.id) {
+                try {
+                    const userRef = doc(db, "users", currentUser.id);
+                    const userSnap = await getDoc(userRef);
+                    if (userSnap.exists()) {
+                        const firestoreData = userSnap.data();
+                        currentUser.isPremium = firestoreData.isPremium === true;
+                        localStorage.setItem('energies_user', JSON.stringify(currentUser));
+                    }
+                } catch(e) {
+                    console.log("Kullanıcı verisi güncellenemedi:", e);
+                }
+            }
+            detayKontrol();
+        }
+
         window.sekmeDegis = function(sekmeId) {
             document.querySelectorAll('.kategori').forEach(el => el.style.display = 'none');
             document.getElementById(sekmeId).style.display = 'block';
@@ -68,9 +85,10 @@
         function checkAuth() {
             const authArea = document.getElementById('authArea');
             if(currentUser) {
+                let premiumRozeti = currentUser.isPremium ? '<span style="color:#16a34a; font-weight:bold;">💎 (VIP Premium Aktif)</span>' : '<span style="color:#64748b;">(Free Üye)</span>';
                 authArea.innerHTML = `
                     <div style="background:#f8fafc; padding:15px; border-radius:8px; border:1px solid #cbd5e1;">
-                        <p style="margin:0 0 10px 0; color:#16a34a; font-weight:bold;">Giriş Yapıldı: ${currentUser.profil} (${currentUser.mail})</p>
+                        <p style="margin:0 0 10px 0; color:#16a34a; font-weight:bold;">Giriş Yapıldı: ${currentUser.profil} (${currentUser.mail}) ${premiumRozeti}</p>
                         <p style="margin:0 0 10px 0; font-size:13px; color:#64748b;">User ID'niz (Firebase'den Premium vermek için): <b style="color:#0284c7;">${currentUser.id}</b></p>
                         <button onclick="cikisYap()" style="background:#dc2626; color:#fff; width:auto; padding:8px 16px;">Çıkış Yap</button>
                     </div>
@@ -143,8 +161,7 @@
                 listeDiv.innerHTML = "<p style='color:red;'>Liste yüklenirken hata oluştu.</p>";
             }
         }
-
-        async function mesajlariGetir() {
+               async function mesajlariGetir() {
             if(!currentUser) {
                 document.getElementById('dmListesi').innerHTML = "<p style='color:red;'>Mesajları görmek için giriş yapmalısın!</p>";
                 return;
@@ -203,7 +220,7 @@
                     const item = docSnap.data();
                     let indirmeAlani = "";
 
-                    let kullaniciPremiumMu = currentUser && currentUser.isPremium;
+                    let kullaniciPremiumMu = currentUser && currentUser.isPremium === true;
                     if(kullaniciPremiumMu && item.premium === "Evet") {
                         indirmeAlani = `<a href="${item.url}" style="background:#16a34a; color:#fff; padding:12px 25px; display:inline-block; font-weight:bold; border-radius:6px; text-decoration:none;">💎 Premium Avantajıyla Hemen İndir</a>`;
                     } else if(item.fiyat <= 0) {
@@ -252,7 +269,7 @@
             document.getElementById('dmDurum').innerText = "Play kod satıcıya iletildi!";
         }
 
-        window.onload = detayKontrol;
+        window.onload = kullaniciyiGuncelleVeBaslat;
     </script>
     <style>
         body { font-family: Arial, sans-serif; background: #f1f5f9; color: #1e293b; margin: 0; padding: 20px; }
@@ -334,4 +351,4 @@
         </div>
     </div>
 </body>
-</html>
+</html> 
